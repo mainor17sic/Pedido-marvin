@@ -3,81 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pedido Marvin</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-
-        /* Fade In Animation */
-        .fade-in {
-            animation: fadeIn 1s;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        /* Button Hover Effect */
-        .btn {
-            padding: 10px 20px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .btn:hover {
-            background-color: #0056b3;
-        }
-
-        /* Slide Animation */
-        .slide {
-            transform: translateY(20px);
-            animation: slideIn 0.5s forwards;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        /* Pulse Effect */
-        .pulse {
-            animation: pulse-animation 1s infinite;
-        }
-
-        @keyframes pulse-animation {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        /* Icon Rotation */
-        .rotate {
-            transition: transform 0.3s;
-        }
-
-        .rotate:hover {
-            transform: rotate(15deg);
-        }
-    </style>
+    <title>React App</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@^2.0/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body>
-    <header class="fade-in">
-        <h1>Welcome to Pedido Marvin</h1>
-    </header>
-    <main>
-        <section class="orders slide">
-            <h2>Your Orders</h2>
-            <!-- Orders will be loaded here -->
-        </section>
-        <section class="summary pulse">
-            <h2>Summary</h2>
-            <!-- Summary content here -->
-        </section>
-        <button class="btn">Place Order</button>
-    </main>
+    <div id="root"></div>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-database.js"></script>
+    <script>
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+    </script>
+    <script src="index.js"></script>
 </body>
 </html>
