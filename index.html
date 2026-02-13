@@ -106,7 +106,51 @@
                     if(confirm("¿Eliminar definitivamente?")) db.collection("pedidos").doc(id).delete();
                 });
             };
-            
+            const imprimirTicket = (p) => {
+    const ventana = window.open('', '_blank');
+    const totalPedido = p.items.reduce((acc, it) => acc + (it.cantidad * it.precio), 0);
+    
+    ventana.document.write(`
+        <html>
+            <head>
+                <title>Ticket - ${p.cliente}</title>
+                <style>
+                    body { font-family: 'Courier New', Courier, monospace; width: 80mm; padding: 10px; }
+                    .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; }
+                    .item { display: flex; justify-content: space-between; margin: 5px 0; }
+                    .total { border-top: 1px dashed #000; margin-top: 10px; padding-top: 5px; font-weight: bold; font-size: 1.2em; }
+                    .footer { text-align: center; font-size: 0.8em; margin-top: 20px; }
+                    @media print { .no-print { display: none; } }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h2 style="margin:0">PANADERIA MARVIN</h2>
+                    <p style="margin:5px 0">Cliente: ${p.cliente}</p>
+                    <p style="font-size: 0.7em">${p.fecha}</p>
+                </div>
+                <div style="margin: 10px 0">
+                    ${p.items.map(it => `
+                        <div class="item">
+                            <span>${it.cantidad} x ${it.nombre}</span>
+                            <span>Q${(it.cantidad * it.precio).toFixed(2)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="total item">
+                    <span>TOTAL:</span>
+                    <span>Q${totalPedido.toFixed(2)}</span>
+                </div>
+                ${p.nota ? `<p style="font-size: 0.8em"><strong>Nota:</strong> ${p.nota}</p>` : ''}
+                <div class="footer">
+                    <p>¡Gracias por su compra!</p>
+                </div>
+                <script>window.print(); window.close();</script>
+            </body>
+        </html>
+    `);
+    ventana.document.close();
+};
 
             const obtenerResumen = () => {
                 const resumen = {}; let totalCaja = 0;
