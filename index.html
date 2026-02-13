@@ -46,7 +46,7 @@
             const [cliente, setCliente] = useState("");
             const [nota, setNota] = useState("");
             const [busqueda, setBusqueda] = useState("");
-            const [itemsForm, setItemsForm] = useState(PRODUCTOS_MENU.map(p => ({ ...p, cantidad:  })));
+            const [itemsForm, setItemsForm] = useState(PRODUCTOS_MENU.map(p => ({ ...p, cantidad: 0 })));
 
             useEffect(() => {
                 const unsubscribe = db.collection("pedidos")
