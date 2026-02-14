@@ -9,7 +9,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
 </head>
@@ -33,12 +33,12 @@
         const db = firebase.firestore();
 
         const PRODUCTOS_MENU = [
-            { nombre: "Pirujos🥖", precio: 0 },
-            { nombre: "Pirujos Grande🥖", precio: 0 },
-            { nombre: "Pastelitos🥯", precio: 0 },
-            { nombre: "Dulce🥐", precio: 0 },
-            { nombre: "torta🍪", precio: 0 },
-            { nombre: "Lagarto🐊", precio: 0 }
+            { nombre: "Pirujitos 🥖", precio: 1 },
+            { nombre: "Pirujos Grande 🥖", precio: 1 },
+            { nombre: "Pastelitos 🥯", precio: 2 },
+            { nombre: "Dulce 🥐", precio: 1 },
+            { nombre: "torta 🍪", precio: 10 },
+            { nombre: "Lagarto 🐊", precio: 15 }
         ];
 
         function App() {
@@ -47,7 +47,8 @@
             const [nota, setNota] = useState("");
             const [busqueda, setBusqueda] = useState("");
             const [itemsForm, setItemsForm] = useState(PRODUCTOS_MENU.map(p => ({ ...p, cantidad: 0 })));
-
+            const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+            
             useEffect(() => {
                 const unsubscribe = db.collection("pedidos")
                     .orderBy("timestamp", "desc")
@@ -107,6 +108,8 @@
                 });
             };
 
+            
+            
             const obtenerResumen = () => {
                 const resumen = {}; let totalCaja = 0;
                 pedidos.forEach(p => {
@@ -120,37 +123,194 @@
 
             const { resumen, totalCaja } = obtenerResumen();
             const pedidosFiltrados = pedidos.filter(p => p.cliente.toLowerCase().includes(busqueda.toLowerCase()));
+            
+            const imprimirTicket = (p) => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // --- DISEÑO ELEGANTE ---
+    // Rectángulo de encabezado (Color Azul Panadería)
+    doc.setFillColor(59, 130, 246); // Azul Tailwind
+    doc.rect(0, 0, 210, 40, 'F');
+
+    // Título Principal
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(28);
+    doc.text("PANADERÍA MARVIN", 105, 22, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "italic");
+    doc.text("Calidad y Sabor en cada Pedido", 105, 30, { align: "center" });
+
+    // Información del Cliente
+    doc.setTextColor(40, 40, 40);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("DETALLES DEL PEDIDO", 20, 55);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(`Cliente: ${p.cliente.toUpperCase()}`, 20, 65);
+    doc.text(`Fecha de emisión: ${p.fecha}`, 20, 72);
+    if(p.nota) doc.text(`Nota: ${p.nota}`, 20, 79);
+
+    // Tabla de Productos
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, 85, 190, 85); // Línea decorativa
+    
+    let y = 95;
+    doc.setFont("helvetica", "bold");
+    doc.text("PRODUCTO", 25, y);
+    doc.text("CANT.", 100, y, { align: "center" });
+    doc.text("PRECIO", 145, y, { align: "right" });
+    doc.text("SUBTOTAL", 185, y, { align: "right" });
+
+    y += 5;
+    doc.line(20, y, 190, y);
+    y += 10;
+
+    let total = 0;
+    doc.setFont("helvetica", "normal");
+    p.items.forEach((it) => {
+        const subtotal = it.cantidad * it.precio;
+        total += subtotal;
+        
+        doc.text(it.nombre, 25, y);
+        doc.text(it.cantidad.toString(), 100, y, { align: "center" });
+        doc.text(`Q${it.precio.toFixed(2)}`, 145, y, { align: "right" });
+        doc.text(`Q${subtotal.toFixed(2)}`, 185, y, { align: "right" });
+        
+        y += 8;
+    });
+
+    // Cuadro de Total
+    y += 10;
+    doc.setFillColor(245, 245, 245);
+    doc.rect(130, y, 60, 15, 'F');
+    doc.setDrawColor(59, 130, 246);
+    doc.setLineWidth(1);
+    doc.rect(130, y, 60, 15, 'S');
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(`TOTAL: Q${total.toFixed(2)}`, 185, y + 10, { align: "right" });
+
+    // Pie de página
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(150, 150, 150);
+    doc.text("Gracias por confiar en nosotros. ¡Vuelva pronto!", 105, 280, { align: "center" });
+
+    // Guardar
+    doc.save(`Pedido_${p.cliente.replace(/\s+/g, '_')}.pdf`);
+};
+const generarComprobante = (p) => {
+    const total = p.items.reduce((acc, it) => acc + (it.cantidad * it.precio), 0);
+    let msg = `*PANADERÍA MARVIN 🥐*\n*Cliente:* ${p.cliente}\n*Total:* Q${total}\n\n`;
+    p.items.forEach(it => msg += `- ${it.cantidad} ${it.nombre}: Q${it.cantidad * it.precio}\n`);
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+};
 
             return (
                 <div className="max-w-md mx-auto p-4 space-y-6 pb-10">
-                    <header className="py-2 text-center">
-                        <h1 className="text-2xl font-black text-gray-800 tracking-tighter italic uppercase underline decoration-blue-500 decoration-4">PANADERIA MARVIN 🥐</h1>
+                    <header className="relative py-8 mb-4 overflow-hidden rounded-[2.5rem] bg-white shadow-sm border border-gray-100">
+    {/* Decoración de fondo sutil */}
+    <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-50 rounded-full blur-3xl"></div>
+    <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-amber-50 rounded-full blur-3xl"></div>
 
-                    </header>
+    <div className="relative flex flex-col items-center">
+        {/* Icono Principal con Círculo */}
+        <div className="mb-3 flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl shadow-lg shadow-blue-200 transform rotate-3">
+            <i className="fa-solid fa-bread-slice text-white text-2xl -rotate-3"></i>
+        </div>
 
+        {/* Título Principal */}
+        <h1 className="text-3xl font-black text-gray-800 tracking-tighter italic uppercase">
+            PANADERIA 🥐🥖
+            <span className="text-blue-600 not-italic"> CLOUD</span>
+        </h1>
 
-                    {/* SECCIÓN DE BÚSQUEDA FLOTANTE / STICKY */}
-                    <div className="sticky-search">
-                        <div className="relative group">
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
-                                <i className="fa-solid fa-magnifying-glass text-xs"></i>
-                            </span>
-                            <input 
-                                className="w-full p-4 pl-10 bg-white rounded-2xl shadow-xl outline-none text-sm font-bold border-2 border-transparent focus:border-blue-400 transition-all placeholder:text-gray-300" 
-                                placeholder="BUSCAR CLIENTE RÁPIDAMENTE..." 
-                                value={busqueda} 
-                                onChange={e => setBusqueda(e.target.value)} 
-                            />
-                            {busqueda && (
-                                <button 
-                                    onClick={() => setBusqueda("")}
-                                    className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-red-500"
-                                >
-                                    <i className="fa-solid fa-circle-xmark"></i>
-                                </button>
-                            )}
+        {/* Subtítulo / Badge */}
+        <div className="mt-2 px-4 py-1 bg-gray-900 rounded-full">
+            <p className="text-[10px] font-bold text-white tracking-[0.3em] uppercase">
+                Premium System 
+            </p>
+        </div>
+        
+        {/* Línea decorativa minimalista */}
+        <div className="mt-4 w-12 h-1 bg-blue-500 rounded-full"></div>
+    </div>
+</header>
+
+                    {/* BUSCADOR ELEGANTE */}
+<div className="sticky top-0 z-50 py-4 bg-gray-100/80 backdrop-blur-md">
+    <div className="relative group">
+        <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+            <i className="fa-solid fa-magnifying-glass text-blue-500/50 group-focus-within:text-blue-600 transition-colors"></i>
+        </div>
+        <input 
+            className="w-full py-4 pl-12 pr-4 bg-white/90 border border-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline-none font-medium text-gray-700 placeholder:text-gray-400 placeholder:font-light focus:ring-4 focus:ring-blue-500/5 focus:border-blue-200 transition-all duration-300" 
+            placeholder="Buscar por nombre de cliente..." 
+            value={busqueda} 
+            onChange={e => {
+                setBusqueda(e.target.value);
+                setMostrarSugerencias(true);
+            }}
+            onFocus={() => setMostrarSugerencias(true)}
+        />
+        
+        {/* MENÚ DE SUGERENCIAS ESTILIZADO */}
+        {mostrarSugerencias && busqueda.length > 0 && (
+            <div className="absolute w-full mt-3 bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-gray-100 overflow-hidden z-[60] animate-in fade-in zoom-in duration-200">
+                {[...new Set(pedidos.map(p => p.cliente))]
+                    .filter(c => c.toLowerCase().includes(busqueda.toLowerCase()))
+                    .map((nombreCliente, i) => (
+                        <div 
+                            key={i}
+                            className="px-6 py-4 border-b border-gray-50 hover:bg-blue-50/50 cursor-pointer flex justify-between items-center transition-colors active:bg-blue-100"
+                            onClick={() => {
+                                setBusqueda(nombreCliente);
+                                setMostrarSugerencias(false);
+                            }}
+                        >
+                            <span className="font-semibold text-gray-700">{nombreCliente}</span>
+                            <i className="fa-solid fa-chevron-right text-[10px] text-gray-300"></i>
                         </div>
-                    </div>
+                    ))
+                }
+                <button 
+                    onClick={() => setMostrarSugerencias(false)}
+                    className="w-full py-3 text-[9px] font-black uppercase text-gray-400 bg-gray-50/50 hover:text-red-400 transition-colors tracking-[0.2em]"
+                >
+                    Ocultar resultados
+                </button>
+            </div>
+        )}
+    </div>
+</div>
+                     {/* DASHBOARD DE ESTADO */}
+<div className="grid grid-cols-2 gap-4 mb-6">
+    <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-50 flex flex-col items-center justify-center">
+        <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-2">
+            <i className="fa-solid fa-fire-burner text-sm"></i>
+        </div>
+        <span className="text-2xl font-black text-gray-800">
+            {pedidos.filter(p => !p.entregado).length}
+        </span>
+        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Pedidos Pendientes</span>
+    </div>
+
+    <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-50 flex flex-col items-center justify-center">
+        <div className="w-10 h-10 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-2">
+            <i className="fa-solid fa-check-double text-sm"></i>
+        </div>
+        <span className="text-2xl font-black text-gray-800">
+            {pedidos.filter(p => p.entregado).length}
+        </span>
+        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Entregados</span>
+    </div>
+</div>
 
                     {/* FORMULARIO */}
                     <div className="bg-white p-6 rounded-[2.5rem] shadow-md border border-gray-100">
@@ -173,49 +333,88 @@
                                 </div>
                             ))}
                         </div>
-                        <button onClick={crearPedido} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest active:scale-95 transition-all shadow-blue-200 shadow-lg">Guardar en la Nube</button>
+                        <button onClick={crearPedido} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold uppercase tracking-[0.2em] active:scale-[0.98] transition-all shadow-lg shadow-blue-200">Guardar en la Nube</button>
                     </div>
 
-                    {/* LISTA */}
-                    <div className="space-y-4">
-                        {pedidosFiltrados.map(p => (
-                            <div key={p.id} className={`p-5 rounded-[2rem] border transition-all ${p.entregado ? 'bg-green-50 opacity-60' : 'bg-white shadow-sm'}`}>
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 className="font-black text-lg uppercase leading-none">{p.cliente}</h3>
-                                        <p className="text-[9px] text-gray-400 font-bold tracking-tighter">{p.fecha}</p>
-                                    </div>
-                                    <button onClick={() => eliminarPedido(p.id)} className="text-gray-200 hover:text-red-500"><i className="fa-solid fa-trash-can"></i></button>
-                                </div>
+                    {/* LISTA DE PEDIDOS PREMIUM */}
+<div className="space-y-6">
+    {pedidosFiltrados.map(p => (
+        <div key={p.id} className={`relative overflow-hidden rounded-[2.5rem] border transition-all duration-500 ${p.entregado ? 'bg-gray-50/50 border-gray-100 opacity-70' : 'bg-white border-white shadow-[0_10px_40px_rgba(0,0,0,0.03)]'}`}>
+            
+            {/* Indicador de estado lateral */}
+            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${p.entregado ? 'bg-green-400' : 'bg-blue-500'}`}></div>
 
-                                <div onClick={() => editarNotaProtegida(p.id, p.nota)} className="mb-4 p-3 bg-amber-50 rounded-xl border-l-4 border-amber-400 cursor-pointer">
-                                    <span className="text-[9px] font-black text-amber-600 uppercase flex items-center gap-1"><i className="fa-solid fa-lock text-[7px]"></i> Nota Protegida</span>
-                                    <p className="text-sm font-bold text-amber-900 mt-1">{p.nota || "Sin nota adicional..."}</p>
-                                </div>
+            <div className="p-6">
+                {/* Encabezado de la Tarjeta */}
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${p.entregado ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'}`}>
+                            {p.entregado ? 'Completado' : 'En Preparación'}
+                        </span>
+                        <h3 className="text-xl font-bold text-gray-800 mt-2 tracking-tight">{p.cliente}</h3>
+                        <p className="text-[11px] text-gray-400 font-medium mt-1">
+                            <i className="fa-regular fa-clock mr-1"></i> {p.fecha}
+                        </p>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                        <button onClick={() => imprimirTicket(p)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all">
+                            <i className="fa-solid fa-print"></i>
+                        </button>
+                        <button onClick={() => generarComprobante(p)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-green-50 hover:text-green-600 transition-all">
+                            <i className="fa-solid fa-share-nodes"></i>
+                        </button>
+                        <button onClick={() => eliminarPedido(p.id)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-200 hover:bg-red-50 hover:text-red-500 transition-all">
+                            <i className="fa-solid fa-trash-can text-sm"></i>
+                        </button>
+                    </div>
+                </div>
 
-                                <div className="space-y-4 mb-5 border-y border-gray-50 py-4">
-                                    {p.items.map((it, i) => (
-                                        <div key={i} className="flex items-center justify-between">
-                                            <div className="w-1/3 text-[10px] font-black text-gray-400 uppercase tracking-tighter">{it.nombre}</div>
-                                            <div className="w-1/3 text-center">
-                                                <span className="text-3xl font-black text-blue-600">{it.cantidad}</span>
-                                            </div>
-                                            <div className="w-1/3 text-right font-bold text-gray-700">Q{it.cantidad * it.precio}</div>
-                                        </div>
-                                    ))}
-                                </div>
+                {/* Nota del Cliente (Si existe) */}
+                {p.nota && (
+                    <div onClick={() => editarNotaProtegida(p.id, p.nota)} className="mb-6 p-4 bg-amber-50/50 rounded-2xl border border-amber-100/50 cursor-pointer group">
+                        <div className="flex items-center gap-2 mb-1">
+                            <i className="fa-solid fa-quote-left text-amber-300 text-xs"></i>
+                            <span className="text-[10px] font-bold text-amber-600 uppercase tracking-tighter">Nota de pedido</span>
+                        </div>
+                        <p className="text-sm text-amber-900 font-medium italic">{p.nota}</p>
+                    </div>
+                )}
 
-                                <div className="flex gap-2">
-                                    <button onClick={() => toggleEstadoSeguro(p.id, 'entregado', p.entregado)} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase transition-colors ${p.entregado ? 'bg-green-600 text-white shadow-inner' : 'bg-gray-100 text-gray-400'}`}>
-                                        {p.entregado ? 'Listo ✓' : 'Entregar'}
-                                    </button>
-                                    <button onClick={() => toggleEstadoSeguro(p.id, 'pagado', p.pagado)} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase transition-colors ${p.pagado ? 'bg-zinc-800 text-white shadow-inner' : 'bg-gray-100 text-gray-400'}`}>
-                                        {p.pagado ? 'PAGADO Q' : 'Cobrar'}
-                                    </button>
+                {/* Items del Pedido */}
+                <div className="space-y-3 mb-6">
+                    {p.items.map((it, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/30 border border-transparent hover:border-gray-100 transition-all">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 flex items-center justify-center bg-white rounded-xl shadow-sm font-bold text-blue-600 text-sm">
+                                    {it.cantidad}
                                 </div>
+                                <span className="text-sm font-semibold text-gray-600 uppercase tracking-tight">{it.nombre}</span>
                             </div>
-                        ))}
-                    </div>
+                            <span className="text-sm font-bold text-gray-800">Q{it.cantidad * it.precio}</span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Acciones Finales */}
+                <div className="flex gap-3">
+                    <button 
+                        onClick={() => toggleEstadoSeguro(p.id, 'entregado', p.entregado)} 
+                        className={`flex-[2] py-4 rounded-2xl text-[11px] font-bold uppercase tracking-[0.1em] transition-all ${p.entregado ? 'bg-green-500 text-white shadow-lg shadow-green-100' : 'bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-200'}`}
+                    >
+                        {p.entregado ? 'Pedido Entregado ✓' : 'Marcar como Entregado'}
+                    </button>
+                    <button 
+                        onClick={() => toggleEstadoSeguro(p.id, 'pagado', p.pagado)} 
+                        className={`flex-1 py-4 rounded-2xl text-[11px] font-bold uppercase tracking-[0.1em] transition-all ${p.pagado ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}
+                    >
+                        {p.pagado ? 'PAGADO Q' : 'POR COBRAR'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    ))}
+</div>
 
                     {/* RESUMEN */}
                     <div className="bg-zinc-900 text-white p-7 rounded-[2.5rem] shadow-2xl border-t-4 border-blue-500">
