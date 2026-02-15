@@ -3,31 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panadería Marvin Cloud 🥐</title>
+    <title>Marvin Cloud - Recibo Pro 🥐</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <style>
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .view-transition { animation: slideUp 0.3s ease-out; }
+        .tap-soft:active { transform: scale(0.95); transition: 0.1s; }
+        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); }
+    </style>
 </head>
-<body class="bg-gray-100 font-sans">
+<body class="bg-[#F8FAFC] font-sans antialiased text-slate-900">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useMemo } = React;
 
-        // --- CONFIGURACIÓN DE FIREBASE ---
-    const firebaseConfig = {
-  apiKey: "AIzaSyD7iqWBCoScuHSID15itaShi7dRQuQwkEo",
-  authDomain: "panaderia-marvin.firebaseapp.com",
-  projectId: "panaderia-marvin",
-  storageBucket: "panaderia-marvin.firebasestorage.app",
-  messagingSenderId: "908203563116",
-  appId: "1:908203563116:web:69995ce1866a536bf3e049"
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyD7iqWBCoScuHSID15itaShi7dRQuQwkEo",
+            authDomain: "panaderia-marvin.firebaseapp.com",
+            projectId: "panaderia-marvin",
+            storageBucket: "panaderia-marvin.firebasestorage.app",
+            messagingSenderId: "908203563116",
+            appId: "1:908203563116:web:69995ce1866a536bf3e049"
+        };
 
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
@@ -37,401 +45,453 @@
             { nombre: "Pirujos Grande 🥖", precio: 1 },
             { nombre: "Pastelitos 🥯", precio: 2 },
             { nombre: "Dulce 🥐", precio: 1 },
-            { nombre: "torta 🍪", precio: 10 },
+            { nombre: "Torta 🍪", precio: 10 },
             { nombre: "Lagarto 🐊", precio: 15 }
         ];
 
         function App() {
             const [pedidos, setPedidos] = useState([]);
+            const [view, setView] = useState("crear");
             const [cliente, setCliente] = useState("");
             const [nota, setNota] = useState("");
-            const [busqueda, setBusqueda] = useState("");
             const [itemsForm, setItemsForm] = useState(PRODUCTOS_MENU.map(p => ({ ...p, cantidad: 0 })));
-            const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
-            
+            const [searchTerm, setSearchTerm] = useState("");
+            const [showSearchBox, setShowSearchBox] = useState(false);
+
             useEffect(() => {
                 const unsubscribe = db.collection("pedidos")
                     .orderBy("timestamp", "desc")
-                    .onSnapshot((snapshot) => {
-                        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        setPedidos(docs);
-                    });
+                    .onSnapshot(snap => setPedidos(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
                 return () => unsubscribe();
             }, []);
 
-            const crearPedido = async () => {
-                const itemsFiltrados = itemsForm.filter(it => it.cantidad > 0);
-                if (!cliente) return alert("Ingresa el nombre del cliente");
-                if (itemsFiltrados.length === 0) return alert("Agrega cantidades");
+            // --- FUNCIÓN RECIBO ELEGANTE ---
+            const generarRecibo = (p) => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+                
+                // --- 1. FONDO ELEGANTE ---
+                // Color crema muy suave para que parezca papel premium
+                doc.setFillColor(252, 251, 247); 
+                doc.rect(0, 0, 210, 297, 'F');
 
-                const nuevoPedido = {
-                    cliente,
-                    nota,
+                // --- 2. MARCA DE AGUA (Icono sutil en el fondo) ---
+                doc.setTextColor(240, 235, 220); // Color casi invisible
+                doc.setFontSize(100);
+                doc.setFont("helvetica", "bold");
+                doc.text("PAN", 105, 150, { align: "center", angle: 45 });
+
+                // --- 3. BORDE DECORATIVO ---
+                doc.setDrawColor(230, 220, 200);
+                doc.setLineWidth(0.5);
+                doc.rect(5, 5, 200, 287); // Marco exterior
+
+                // --- 4. ENCABEZADO AZUL (Estilo de tu imagen) ---
+                doc.setFillColor(37, 99, 235); // Azul Profesional
+                doc.rect(0, 0, 210, 45, 'F');
+                
+                doc.setTextColor(255, 255, 255);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(28);
+                doc.text("PANADERÍA MARVIN", 105, 25, { align: "center" });
+                
+                doc.setFontSize(11);
+                doc.setFont("helvetica", "italic");
+                doc.text("Calidad y Sabor en cada Pedido", 105, 33, { align: "center" });
+
+                // --- 5. DETALLES DEL CLIENTE ---
+                doc.setTextColor(30, 41, 59);
+                doc.setFontSize(12);
+                doc.setFont("helvetica", "bold");
+                doc.text("DETALLES DEL PEDIDO", 20, 60);
+                
+                // Línea divisoria bajo el título
+                doc.setDrawColor(37, 99, 235);
+                doc.setLineWidth(0.8);
+                doc.line(20, 62, 70, 62);
+
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(71, 85, 105);
+                doc.text(`CLIENTE:`, 20, 72);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(15, 23, 42);
+                doc.text(`${p.cliente.toUpperCase()}`, 45, 72);
+
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(71, 85, 105);
+                doc.text(`FECHA:`, 20, 78);
+                doc.text(`${p.fecha}`, 45, 78);
+
+                doc.text(`NOTA:`, 20, 84);
+                doc.setFont("helvetica", "italic");
+                doc.text(`${p.nota || "Sin observaciones adicionales"}`, 45, 84);
+
+                // --- 6. TABLA DE PRODUCTOS ---
+                let y = 100;
+                // Sombreado para el encabezado de la tabla
+                doc.setFillColor(241, 245, 249);
+                doc.rect(20, y, 170, 10, 'F');
+                
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(30, 41, 59);
+                doc.text("PRODUCTO", 25, y + 7);
+                doc.text("CANT.", 100, y + 7);
+                doc.text("PRECIO", 140, y + 7);
+                doc.text("SUBTOTAL", 185, y + 7, { align: "right" });
+                
+                y += 18;
+                let totalGral = 0;
+                
+                p.items.forEach((it, index) => {
+                    const sub = it.cantidad * it.precio;
+                    totalGral += sub;
+                    
+                    // Línea sutil entre productos
+                    doc.setDrawColor(226, 232, 240);
+                    doc.setLineWidth(0.1);
+                    doc.line(20, y + 2, 190, y + 2);
+
+                    doc.setFont("helvetica", "normal");
+                    doc.setTextColor(51, 65, 85);
+                    doc.text(`${it.nombre}`, 25, y);
+                    doc.text(`${it.cantidad}`, 105, y, { align: "center" });
+                    doc.text(`Q${it.precio.toFixed(2)}`, 140, y);
+                    doc.setFont("helvetica", "bold");
+                    doc.text(`Q${sub.toFixed(2)}`, 185, y, { align: "right" });
+                    y += 9;
+                });
+
+                // --- 7. RECUADRO DE TOTAL RESALTADO ---
+                y += 10;
+                doc.setFillColor(37, 99, 235);
+                doc.rect(130, y, 60, 15, 'F'); // Fondo azul para el total
+                
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(14);
+                doc.setFont("helvetica", "bold");
+                doc.text(`TOTAL: Q${totalGral.toFixed(2)}`, 185, y + 10, { align: "right" });
+
+                // --- 8. PIE DE PÁGINA ---
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "italic");
+                doc.setTextColor(148, 163, 184);
+                doc.text("Este documento es un comprobante de venta de Panadería Marvin.", 105, 275, { align: "center" });
+                doc.setFont("helvetica", "bold");
+                doc.text("¡Gracias por su preferencia!", 105, 280, { align: "center" });
+
+                doc.save(`Recibo_Marvin_${p.cliente.replace(/\s+/g, '_')}.pdf`);
+            };
+
+            const crearPedido = async () => {
+                const items = itemsForm.filter(it => it.cantidad > 0);
+                if (!cliente || items.length === 0) return alert("Faltan datos");
+
+                const counterRef = db.collection("config").doc("counter");
+                const docCounter = await counterRef.get();
+                let nextCorrelativo = 1;
+                if (docCounter.exists) nextCorrelativo = docCounter.data().last + 1;
+                
+                await db.collection("pedidos").add({
+                    correlativo: nextCorrelativo,
+                    cliente, nota, items,
                     fecha: new Date().toLocaleString([], {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}),
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    items: itemsFiltrados,
-                    entregado: false,
-                    pagado: false 
-                };
-
-                await db.collection("pedidos").add(nuevoPedido);
-                setCliente(""); setNota("");
-                setItemsForm(PRODUCTOS_MENU.map(p => ({ ...p, cantidad: 0 })));
-            };
-
-            // FUNCIÓN DE SEGURIDAD PARA TODOS LOS CAMBIOS
-            const ejecutarConPassword = (accion) => {
-                const pass = prompt("Contraseña de seguridad:");
-                if (pass === "00") {
-                    accion();
-                } else if (pass !== null) {
-                    alert("Acceso denegado 🚫");
-                }
-            };
-
-            const toggleEstadoSeguro = (id, campo, valorActual) => {
-                ejecutarConPassword(() => {
-                    db.collection("pedidos").doc(id).update({ [campo]: !valorActual });
+                    entregado: false, pagado: false 
                 });
-            };
+                await counterRef.set({ last: nextCorrelativo });
 
-            const editarNotaProtegida = (id, notaActual) => {
-                ejecutarConPassword(async () => {
-                    const nuevaNota = prompt("Nueva nota:", notaActual || "");
-                    if (nuevaNota !== null) await db.collection("pedidos").doc(id).update({ nota: nuevaNota });
-                });
-            };
-
-            const eliminarPedido = (id) => {
-                ejecutarConPassword(() => {
-                    if(confirm("¿Eliminar definitivamente?")) db.collection("pedidos").doc(id).delete();
-                });
-            };
-
-            
-            
-            const obtenerResumen = () => {
-                const resumen = {}; let totalCaja = 0;
-                pedidos.forEach(p => {
-                    p.items.forEach(item => {
-                        if (!p.entregado) resumen[item.nombre] = (resumen[item.nombre] || 0) + (parseInt(item.cantidad) || 0);
-                        if (p.pagado) totalCaja += (item.cantidad * item.precio);
-                    });
-                });
-                return { resumen, totalCaja };
-            };
-
-            const { resumen, totalCaja } = obtenerResumen();
-            const pedidosFiltrados = pedidos.filter(p => p.cliente.toLowerCase().includes(busqueda.toLowerCase()));
-            
-            const imprimirTicket = (p) => {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    // --- DISEÑO ELEGANTE ---
-    // Rectángulo de encabezado (Color Azul Panadería)
-    doc.setFillColor(59, 130, 246); // Azul Tailwind
-    doc.rect(0, 0, 210, 40, 'F');
-
-    // Título Principal
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(28);
-    doc.text("PANADERÍA MARVIN", 105, 22, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "italic");
-    doc.text("Calidad y Sabor en cada Pedido", 105, 30, { align: "center" });
-
-    // Información del Cliente
-    doc.setTextColor(40, 40, 40);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text("DETALLES DEL PEDIDO", 20, 55);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    doc.text(`Cliente: ${p.cliente.toUpperCase()}`, 20, 65);
-    doc.text(`Fecha de emisión: ${p.fecha}`, 20, 72);
-    if(p.nota) doc.text(`Nota: ${p.nota}`, 20, 79);
-
-    // Tabla de Productos
-    doc.setDrawColor(200, 200, 200);
-    doc.line(20, 85, 190, 85); // Línea decorativa
-    
-    let y = 95;
-    doc.setFont("helvetica", "bold");
-    doc.text("PRODUCTO", 25, y);
-    doc.text("CANT.", 100, y, { align: "center" });
-    doc.text("PRECIO", 145, y, { align: "right" });
-    doc.text("SUBTOTAL", 185, y, { align: "right" });
-
-    y += 5;
-    doc.line(20, y, 190, y);
-    y += 10;
-
-    let total = 0;
-    doc.setFont("helvetica", "normal");
-    p.items.forEach((it) => {
-        const subtotal = it.cantidad * it.precio;
-        total += subtotal;
-        
-        doc.text(it.nombre, 25, y);
-        doc.text(it.cantidad.toString(), 100, y, { align: "center" });
-        doc.text(`Q${it.precio.toFixed(2)}`, 145, y, { align: "right" });
-        doc.text(`Q${subtotal.toFixed(2)}`, 185, y, { align: "right" });
-        
-        y += 8;
+    // EFECTO DE CONFETI AL CREAR
+    confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#2563eb', '#fbbf24', '#10b981']
     });
 
-    // Cuadro de Total
-    y += 10;
-    doc.setFillColor(245, 245, 245);
-    doc.rect(130, y, 60, 15, 'F');
-    doc.setDrawColor(59, 130, 246);
-    doc.setLineWidth(1);
-    doc.rect(130, y, 60, 15, 'S');
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text(`TOTAL: Q${total.toFixed(2)}`, 185, y + 10, { align: "right" });
-
-    // Pie de página
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "italic");
-    doc.setTextColor(150, 150, 150);
-    doc.text("Gracias por confiar en nosotros. ¡Vuelva pronto!", 105, 280, { align: "center" });
-
-    // Guardar
-    doc.save(`Pedido_${p.cliente.replace(/\s+/g, '_')}.pdf`);
+    setCliente(""); setNota("");
+    setItemsForm(PRODUCTOS_MENU.map(p => ({ ...p, cantidad: 0 })));
+    setView("agenda");
 };
-const generarComprobante = (p) => {
-    const total = p.items.reduce((acc, it) => acc + (it.cantidad * it.precio), 0);
-    let msg = `*PANADERÍA MARVIN 🥐*\n*Cliente:* ${p.cliente}\n*Total:* Q${total}\n\n`;
-    p.items.forEach(it => msg += `- ${it.cantidad} ${it.nombre}: Q${it.cantidad * it.precio}\n`);
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+
+            const toggleEstado = (id, campo, valor) => {
+    const pass = prompt("PIN:");
+    if (pass === "00") {
+        const nuevoValor = !valor;
+        db.collection("pedidos").doc(id).update({ [campo]: nuevoValor });
+
+        // Confetti solo si se marca como ENTREGADO (campo 'entregado' y nuevoValor true)
+        if (campo === 'entregado' && nuevoValor === true) {
+            confetti({
+                particleCount: 150,
+                velocity: 30,
+                scale: 0.8,
+                shapes: ['circle'],
+                origin: { x: 0.5, y: 0.8 }
+            });
+        }
+    }
 };
 
             return (
-                <div className="max-w-md mx-auto p-4 space-y-6 pb-10">
-                    <header className="relative py-8 mb-4 overflow-hidden rounded-[2.5rem] bg-white shadow-sm border border-gray-100">
-    {/* Decoración de fondo sutil */}
-    <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-50 rounded-full blur-3xl"></div>
-    <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-amber-50 rounded-full blur-3xl"></div>
-
-    <div className="relative flex flex-col items-center">
-        {/* Icono Principal con Círculo */}
-        <div className="mb-3 flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl shadow-lg shadow-blue-200 transform rotate-3">
-            <i className="fa-solid fa-bread-slice text-white text-2xl -rotate-3"></i>
-        </div>
-
-        {/* Título Principal */}
-        <h1 className="text-3xl font-black text-gray-800 tracking-tighter italic uppercase">
-            PANADERIA 🥐🥖
-            <span className="text-blue-600 not-italic"> CLOUD</span>
-        </h1>
-
-        {/* Subtítulo / Badge */}
-        <div className="mt-2 px-4 py-1 bg-gray-900 rounded-full">
-            <p className="text-[10px] font-bold text-white tracking-[0.3em] uppercase">
-                Premium System 
-            </p>
-        </div>
-        
-        {/* Línea decorativa minimalista */}
-        <div className="mt-4 w-12 h-1 bg-blue-500 rounded-full"></div>
-    </div>
-</header>
-
-                    {/* BUSCADOR ELEGANTE */}
-<div className="sticky top-0 z-50 py-4 bg-gray-100/80 backdrop-blur-md">
-    <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-            <i className="fa-solid fa-magnifying-glass text-blue-500/50 group-focus-within:text-blue-600 transition-colors"></i>
-        </div>
-        <input 
-            className="w-full py-4 pl-12 pr-4 bg-white/90 border border-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] outline-none font-medium text-gray-700 placeholder:text-gray-400 placeholder:font-light focus:ring-4 focus:ring-blue-500/5 focus:border-blue-200 transition-all duration-300" 
-            placeholder="Buscar por nombre de cliente..." 
-            value={busqueda} 
-            onChange={e => {
-                setBusqueda(e.target.value);
-                setMostrarSugerencias(true);
-            }}
-            onFocus={() => setMostrarSugerencias(true)}
-        />
-        
-        {/* MENÚ DE SUGERENCIAS ESTILIZADO */}
-        {mostrarSugerencias && busqueda.length > 0 && (
-            <div className="absolute w-full mt-3 bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-gray-100 overflow-hidden z-[60] animate-in fade-in zoom-in duration-200">
-                {[...new Set(pedidos.map(p => p.cliente))]
-                    .filter(c => c.toLowerCase().includes(busqueda.toLowerCase()))
-                    .map((nombreCliente, i) => (
-                        <div 
-                            key={i}
-                            className="px-6 py-4 border-b border-gray-50 hover:bg-blue-50/50 cursor-pointer flex justify-between items-center transition-colors active:bg-blue-100"
-                            onClick={() => {
-                                setBusqueda(nombreCliente);
-                                setMostrarSugerencias(false);
-                            }}
-                        >
-                            <span className="font-semibold text-gray-700">{nombreCliente}</span>
-                            <i className="fa-solid fa-chevron-right text-[10px] text-gray-300"></i>
-                        </div>
-                    ))
-                }
-                <button 
-                    onClick={() => setMostrarSugerencias(false)}
-                    className="w-full py-3 text-[9px] font-black uppercase text-gray-400 bg-gray-50/50 hover:text-red-400 transition-colors tracking-[0.2em]"
-                >
-                    Ocultar resultados
-                </button>
-            </div>
-        )}
-    </div>
-</div>
-                     {/* DASHBOARD DE ESTADO */}
-<div className="grid grid-cols-2 gap-4 mb-6">
-    <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-50 flex flex-col items-center justify-center">
-        <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-2">
-            <i className="fa-solid fa-fire-burner text-sm"></i>
-        </div>
-        <span className="text-2xl font-black text-gray-800">
-            {pedidos.filter(p => !p.entregado).length}
-        </span>
-        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Pedidos Pendientes</span>
-    </div>
-
-    <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-50 flex flex-col items-center justify-center">
-        <div className="w-10 h-10 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-2">
-            <i className="fa-solid fa-check-double text-sm"></i>
-        </div>
-        <span className="text-2xl font-black text-gray-800">
-            {pedidos.filter(p => p.entregado).length}
-        </span>
-        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Entregados</span>
-    </div>
-</div>
-
-                    {/* FORMULARIO */}
-                    <div className="bg-white p-6 rounded-[2.5rem] shadow-md border border-gray-100">
-                        <h2 className="text-[10px] font-black uppercase text-gray-400 mb-4 tracking-widest">Nuevo Pedido</h2>
-                        <input className="w-full p-3 mb-2 bg-gray-50 rounded-2xl font-bold outline-none" placeholder="Nombre Cliente" value={cliente} onChange={e => setCliente(e.target.value)} />
-                        <input className="w-full p-3 mb-4 bg-gray-50 rounded-2xl text-xs outline-none" placeholder="Nota..." value={nota} onChange={e => setNota(e.target.value)} />
-
-                        <div className="space-y-2 mb-6">
-                            {itemsForm.map((it, idx) => (
-                                <div key={it.nombre} className="flex items-center justify-between bg-gray-50 p-2 px-3 rounded-2xl">
-                                    <span className="font-bold text-gray-600 text-sm">{it.nombre}</span>
-                                    <div className="flex gap-2">
-                                        <input type="number" className="w-12 bg-white rounded-lg p-1 text-center font-black text-blue-600 border" value={it.cantidad} onChange={e => {
-                                            const n = [...itemsForm]; n[idx].cantidad = parseInt(e.target.value) || 0; setItemsForm(n);
-                                        }} />
-                                        <input type="number" className="w-14 bg-white rounded-lg p-1 text-right font-bold text-green-600 border" placeholder="Q" value={it.precio} onChange={e => {
-                                            const n = [...itemsForm]; n[idx].precio = parseFloat(e.target.value) || 0; setItemsForm(n);
-                                        }} />
-                                    </div>
-                                </div>
+                <div className="max-w-md mx-auto min-h-screen pb-32">
+                    {/* NAV SUPERIOR */}
+                    <div className="fixed top-0 left-0 right-0 z-40 p-4 max-w-md mx-auto">
+                        <nav className="glass border border-white/40 shadow-xl rounded-full flex justify-around p-2">
+                            {['crear', 'agenda', 'entregas', 'resumen'].map((t) => (
+                                <button key={t} onClick={() => setView(t)} className={`w-12 h-12 rounded-full tap-soft flex items-center justify-center transition-all ${view === t ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>
+                                    <i className={`fa-solid ${t==='crear'?'fa-plus':t==='agenda'?'fa-list':t==='entregas'?'fa-check-double':'fa-vault'}`}></i>
+                                </button>
                             ))}
-                        </div>
-                        <button onClick={crearPedido} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold uppercase tracking-[0.2em] active:scale-[0.98] transition-all shadow-lg shadow-blue-200">Guardar en la Nube</button>
+                        </nav>
                     </div>
 
-                    {/* LISTA DE PEDIDOS PREMIUM */}
-<div className="space-y-6">
-    {pedidosFiltrados.map(p => (
-        <div key={p.id} className={`relative overflow-hidden rounded-[2.5rem] border transition-all duration-500 ${p.entregado ? 'bg-gray-50/50 border-gray-100 opacity-70' : 'bg-white border-white shadow-[0_10px_40px_rgba(0,0,0,0.03)]'}`}>
+                    <div className="pt-24 px-4 view-transition">
+                        {/* VISTA CREAR */}
+{view === 'crear' && (
+    <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
+        <div className="text-center mb-10 relative">
+            {/* Un pequeño detalle visual (Icono) */}
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-amber-50 rounded-full mb-4">
+                <span className="text-2xl">🥐</span>
+            </div>
             
-            {/* Indicador de estado lateral */}
-            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${p.entregado ? 'bg-green-400' : 'bg-blue-500'}`}></div>
+            <h1 className="text-3xl font-serif italic text-slate-800 tracking-tight leading-none">
+                REGISTRO <span className="font-sans font-black not-italic text-blue-600">PANADERIA</span>
+            </h1>
+            
+            <div className="flex items-center justify-center gap-2 mt-2">
+                <span className="h-[1px] w-8 bg-slate-200"></span>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.4em]">
+                    Registros de pedidos
+                </p>
+                <span className="h-[1px] w-8 bg-slate-200"></span>
+            </div>
+        </div>
+        
+        {/* Los inputs se mantienen igual debajo... */}
+        
+                                <input className="w-full p-4 mb-3 bg-slate-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-blue-100" placeholder="Nombre del Cliente" value={cliente} onChange={e => setCliente(e.target.value)} />
+                                <textarea className="w-full p-4 mb-6 bg-slate-50 rounded-2xl text-sm font-medium outline-none h-16 resize-none" placeholder="NOTA..." value={nota} onChange={e => setNota(e.target.value)} />
+                                
+                                <div className="space-y-2 mb-8">
+                                    {itemsForm.map((it, idx) => (
+                                        <div key={it.nombre} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                            <span className="font-bold text-slate-600 text-xs uppercase">{it.nombre}</span>
+                                            <div className="flex items-center gap-3">
+                                                <input type="number" className="w-12 bg-white rounded-xl py-2 text-center font-black text-blue-600 shadow-sm border-none" value={it.cantidad} onChange={e => {
+                                                    const n = [...itemsForm]; n[idx].cantidad = parseInt(e.target.value) || 0; setItemsForm(n);
+                                                }} />
+                                                <span className="text-[10px] font-black text-slate-300">Q{it.precio}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button onClick={crearPedido} className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest tap-soft shadow-xl">Generar Orden</button>
+                            </div>
+                        )}
 
-            <div className="p-6">
-                {/* Encabezado de la Tarjeta */}
-                <div className="flex justify-between items-start mb-6">
-                    <div>
-                        <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${p.entregado ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'}`}>
-                            {p.entregado ? 'Completado' : 'En Preparación'}
-                        </span>
-                        <h3 className="text-xl font-bold text-gray-800 mt-2 tracking-tight">{p.cliente}</h3>
-                        <p className="text-[11px] text-gray-400 font-medium mt-1">
-                            <i className="fa-regular fa-clock mr-1"></i> {p.fecha}
-                        </p>
+                        {/* LISTA AGENDA / ENTREGAS */}
+{(view === 'agenda' || view === 'entregas') && (
+    <div className="space-y-4">
+        <div className="flex items-center justify-between ml-2 mb-6">
+            <h2 className="text-xl font-serif italic text-slate-800 tracking-tight">
+                {view === 'agenda' ? 'Pedidos en Curso' : 'Entregas Realizadas'}
+            </h2>
+            <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest">
+                {view === 'agenda' ? 'Producción' : 'Archivo'}
+            </span>
+        </div>
+
+        {pedidos.filter(p => view === 'agenda' ? !p.entregado : p.entregado)
+            .filter(p => p.cliente.toLowerCase().includes(searchTerm.toLowerCase()))
+            .map(p => (
+            <div key={p.id} className="bg-white rounded-[2.5rem] p-7 shadow-sm border border-slate-100 relative mb-6 view-transition">
+                {/* ENCABEZADO DE FICHA */}
+                <div className="flex justify-between items-start mb-5">
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-[7px] font-black bg-slate-900 text-white px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                #{p.correlativo}
+                            </span>
+                            {p.pagado && (
+                                <span className="text-[7px] font-black bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full uppercase">
+                                    Confirmado
+                                </span>
+                            )}
+                        </div>
+                        <h3 className="text-xl font-serif italic text-slate-800 tracking-tight leading-none">
+                            {p.cliente}
+                        </h3>
+                        
+                        {/* NOTA CON ESTILO DE ETIQUETA */}
+                        <div className="mt-3 flex items-center gap-2">
+                            <div className="h-4 w-[2px] bg-blue-500 rounded-full"></div>
+                            <p className="text-[10px] font-medium text-slate-400 italic">
+                                {p.nota || "Sin especificaciones"}
+                            </p>
+                            <button 
+                                onClick={() => {
+                                    const pass = prompt("PIN para editar:");
+                                    if (pass === "00") {
+                                        const nuevaNota = prompt("Editar nota:", p.nota);
+                                        if (nuevaNota !== null) db.collection("pedidos").doc(p.id).update({ nota: nuevaNota });
+                                    }
+                                }}
+                                className="text-slate-300 hover:text-blue-500 transition-colors"
+                            >
+                                <i className="fa-solid fa-pen-to-square text-[9px]"></i>
+                            </button>
+                        </div>
                     </div>
                     
-                    <div className="flex gap-3">
-                        <button onClick={() => imprimirTicket(p)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all">
-                            <i className="fa-solid fa-print"></i>
+                    {/* ACCIONES RÁPIDAS */}
+                    <div className="flex flex-col gap-2">
+                        <button onClick={() => generarRecibo(p)} className="bg-slate-900 text-white w-9 h-9 rounded-full flex items-center justify-center tap-soft shadow-lg">
+                            <i className="fa-solid fa-print text-[10px]"></i>
                         </button>
-                        <button onClick={() => generarComprobante(p)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-green-50 hover:text-green-600 transition-all">
-                            <i className="fa-solid fa-share-nodes"></i>
-                        </button>
-                        <button onClick={() => eliminarPedido(p.id)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-200 hover:bg-red-50 hover:text-red-500 transition-all">
-                            <i className="fa-solid fa-trash-can text-sm"></i>
+                        <button 
+                            onClick={() => {
+                                const pass = prompt("PIN para ELIMINAR:");
+                                if (pass === "00" && confirm("¿Eliminar registro?")) db.collection("pedidos").doc(p.id).delete();
+                            }} 
+                            className="bg-red-50 text-red-400 w-9 h-9 rounded-full flex items-center justify-center tap-soft border border-red-100"
+                        >
+                            <i className="fa-solid fa-trash text-[10px]"></i>
                         </button>
                     </div>
                 </div>
 
-                {/* Nota del Cliente (Si existe) */}
-                {p.nota && (
-                    <div onClick={() => editarNotaProtegida(p.id, p.nota)} className="mb-6 p-4 bg-amber-50/50 rounded-2xl border border-amber-100/50 cursor-pointer group">
-                        <div className="flex items-center gap-2 mb-1">
-                            <i className="fa-solid fa-quote-left text-amber-300 text-xs"></i>
-                            <span className="text-[10px] font-bold text-amber-600 uppercase tracking-tighter">Nota de pedido</span>
-                        </div>
-                        <p className="text-sm text-amber-900 font-medium italic">{p.nota}</p>
-                    </div>
-                )}
-
-                {/* Items del Pedido */}
-                <div className="space-y-3 mb-6">
-                    {p.items.map((it, i) => (
-                        <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/30 border border-transparent hover:border-gray-100 transition-all">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 flex items-center justify-center bg-white rounded-xl shadow-sm font-bold text-blue-600 text-sm">
-                                    {it.cantidad}
-                                </div>
-                                <span className="text-sm font-semibold text-gray-600 uppercase tracking-tight">{it.nombre}</span>
-                            </div>
-                            <span className="text-sm font-bold text-gray-800">Q{it.cantidad * it.precio}</span>
-                        </div>
-                    ))}
+                {/* LISTA DE PRODUCTOS MINIMALISTA - CANTIDADES RESALTADAS */}
+<div className="space-y-3 mb-6 bg-slate-50/80 p-5 rounded-[2rem] border border-slate-100">
+    {p.items.map((it, i) => (
+        <div key={i} className="flex justify-between items-center group">
+            <div className="flex items-center gap-4">
+                {/* CANTIDAD GRANDE Y VISIBLE */}
+                <div className="flex flex-col items-center justify-center bg-white border border-blue-100 shadow-sm w-12 h-12 rounded-2xl">
+                    <span className="text-xl font-black text-blue-600 leading-none">
+                        {it.cantidad}
+                    </span>
+                    <span className="text-[7px] font-bold text-blue-300 uppercase tracking-tighter">Cant.</span>
                 </div>
-
-                {/* Acciones Finales */}
-                <div className="flex gap-3">
-                    <button 
-                        onClick={() => toggleEstadoSeguro(p.id, 'entregado', p.entregado)} 
-                        className={`flex-[2] py-4 rounded-2xl text-[11px] font-bold uppercase tracking-[0.1em] transition-all ${p.entregado ? 'bg-green-500 text-white shadow-lg shadow-green-100' : 'bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-200'}`}
-                    >
-                        {p.entregado ? 'Pedido Entregado ✓' : 'Marcar como Entregado'}
-                    </button>
-                    <button 
-                        onClick={() => toggleEstadoSeguro(p.id, 'pagado', p.pagado)} 
-                        className={`flex-1 py-4 rounded-2xl text-[11px] font-bold uppercase tracking-[0.1em] transition-all ${p.pagado ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}
-                    >
-                        {p.pagado ? 'PAGADO Q' : 'POR COBRAR'}
-                    </button>
+                
+                <div className="flex flex-col">
+                    <span className="text-[11px] font-black text-slate-700 uppercase tracking-tight">
+                        {it.nombre}
+                    </span>
+                    <span className="text-[9px] font-medium text-slate-400">
+                        Precio unit: Q{it.precio.toFixed(2)}
+                    </span>
                 </div>
+            </div>
+            
+            <div className="text-right">
+                <span className="text-[11px] font-black text-slate-800">
+                    Q{(it.cantidad * it.precio).toFixed(2)}
+                </span>
             </div>
         </div>
     ))}
 </div>
 
-                    {/* RESUMEN */}
-                    <div className="bg-zinc-900 text-white p-7 rounded-[2.5rem] shadow-2xl border-t-4 border-blue-500">
-                        <div className="flex justify-between mb-6">
-                            <h2 className="text-xl font-black italic uppercase">Pendientes</h2>
-                            <div className="text-right">
-                                <p className="text-[9px] text-green-500 font-black tracking-widest">CAJA ACUMULADA</p>
-                                <p className="text-2xl font-black">Q{totalCaja}</p>
-                            </div>
+                {/* CONTROLES DE ESTADO */}
+                <div className="flex gap-3">
+                    <button 
+                        onClick={() => toggleEstado(p.id, 'entregado', p.entregado)} 
+                        className={`flex-[2] py-4 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] tap-soft transition-all ${
+                            p.entregado 
+                            ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' 
+                            : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                        }`}
+                    >
+                        {p.entregado ? 'Pedido Entregado' : 'Marcar Entrega'}
+                    </button>
+                    <button 
+                        onClick={() => toggleEstado(p.id, 'pagado', p.pagado)} 
+                        className={`flex-1 rounded-2xl tap-soft border-2 transition-all flex items-center justify-center ${
+                            p.pagado 
+                            ? 'bg-blue-600 border-blue-600 text-white' 
+                            : 'bg-white border-slate-100 text-slate-300'
+                        }`}
+                    >
+                        <i className={`fa-solid ${p.pagado ? 'fa-check-double' : 'fa-wallet'} text-xs`}></i>
+                    </button>
+                </div>
+            </div>
+        ))}
+    </div>
+)}
+
+
+                        {/* CAJA / RESUMEN ELEGANTE */}
+{view === 'resumen' && (
+    <div className="space-y-6 view-transition">
+        {/* Tarjeta de Capital Principal */}
+        <div className="bg-slate-900 text-white rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
+            {/* Círculos decorativos de fondo */}
+            <div className="absolute top-0 right-0 w-40 h-40 bg-blue-600/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-amber-400/5 rounded-full -ml-16 -mb-16 blur-2xl"></div>
+            
+            <div className="relative z-10 text-center">
+                <p className="text-[10px] font-black text-blue-400 tracking-[0.4em] mb-4 uppercase">Balance de Ventas</p>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                    <span className="text-2xl font-light text-slate-400">Q</span>
+                    <h2 className="text-5xl font-black tracking-tighter">
+                        {pedidos.filter(p=>p.pagado).reduce((acc,p)=> acc + p.items.reduce((a,i)=>a+(i.cantidad*i.precio),0),0).toFixed(2)}
+                    </h2>
+                </div>
+                <div className="inline-block px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mt-2">
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Capital en Efectivo</p>
+                </div>
+            </div>
+        </div>
+
+        {/* Consolidado de Horneado */}
+        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
+            <div className="flex flex-col items-center mb-8">
+                <i className="fa-solid fa-fire-burner text-amber-500 mb-2"></i>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Plan de Producción</h3>
+                <div className="h-[2px] w-8 bg-blue-100 mt-2"></div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+                {Object.entries(pedidos.filter(p=>!p.entregado).reduce((acc,p)=>{
+                    p.items.forEach(it => acc[it.nombre] = (acc[it.nombre]||0) + it.cantidad);
+                    return acc;
+                },{})).map(([nom, cant]) => (
+                    <div key={nom} className="flex justify-between items-center p-4 rounded-2xl bg-slate-50/50 border border-slate-50 group hover:border-blue-100 transition-colors">
+                        <span className="font-bold text-slate-600 text-xs uppercase tracking-tight">{nom}</span>
+                        <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-black text-slate-300 italic">Unidades:</span>
+                            <span className="text-xl font-black text-slate-800">{cant}</span>
                         </div>
-                        {Object.keys(resumen).map(nombre => (
-                            <div key={nombre} className="flex justify-between items-center bg-white/5 p-3 mb-2 rounded-2xl border border-white/5">
-                                <span className="text-zinc-500 font-black uppercase text-[10px]">{nombre}</span>
-                                <span className="text-2xl font-black text-blue-400">{resumen[nombre]}</span>
-                            </div>
-                        ))}
                     </div>
+                ))}
+            </div>
+
+            {/* Mensaje de cierre si no hay pedidos */}
+            {Object.keys(pedidos.filter(p=>!p.entregado)).length === 0 && (
+                <p className="text-center text-slate-400 text-[10px] font-medium italic">No hay horneado pendiente por ahora.</p>
+            )}
+        </div>
+    </div>
+)}
+
+                    </div>
+
+                    {/* BUSCADOR FLOTANTE */}
+                    {(view === 'agenda' || view === 'entregas') && (
+                        <div className="fixed bottom-10 right-6 z-[60] flex flex-col items-end gap-3">
+                            {showSearchBox && (
+                                <div className="bg-white p-4 rounded-[2rem] shadow-2xl border border-slate-100 w-72 mb-2 view-transition">
+                                    <input autoFocus className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold outline-none border-2 border-transparent focus:border-blue-500" placeholder="Nombre cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                                </div>
+                            )}
+                            <button onClick={() => setShowSearchBox(!showSearchBox)} className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-2xl tap-soft transition-all ${showSearchBox ? 'bg-slate-800' : 'bg-blue-600'}`}>
+                                <i className={`fa-solid ${showSearchBox ? 'fa-xmark' : 'fa-magnifying-glass'}`}></i>
+                            </button>
+                        </div>
+                    )}
                 </div>
             );
         }
